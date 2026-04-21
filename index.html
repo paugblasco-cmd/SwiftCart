@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SwiftCart - Listas Inteligentes</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* ================= VARIABLES Y TEMA ================= */
+        :root {
+            --bg-color: #f3f4f6;
+            --surface: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --primary: #10b981; 
+            --primary-hover: #059669;
+            --danger: #ef4444;
+            --border: #e5e7eb;
+            --radius: 16px;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #111827;
+            --surface: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border: #374151;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ================= RESET Y BASES ================= */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); transition: var(--transition); min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
+        button, input, select { font: inherit; outline: none; border: none; }
+        button { cursor: pointer; transition: var(--transition); }
+
+        /* ================= LAYOUT PRINCIPAL ================= */
+        .app-container { background: var(--surface); width: 100%; max-width: 500px; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; position: relative; }
+        
+        .header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, var(--surface) 0%, rgba(16, 185, 129, 0.05) 100%); }
+        .header h1 { font-size: 1.3rem; display: flex; align-items: center; gap: 8px; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .group-badge { font-size: 0.75rem; background: var(--primary); color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+        
+        .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .icon-btn { background: transparent; color: var(--text-muted); font-size: 1.5rem; padding: 8px; border-radius: 50%; }
+        .icon-btn:hover { background: var(--border); color: var(--text-main); transform: scale(1.05); }
+
+        .top-bar { padding: 15px 20px; display: flex; flex-direction: column; gap: 15px; }
+        .search-box { position: relative; width: 100%; }
+        .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .search-box input { width: 100%; background: var(--bg-color); color: var(--text-main); padding: 12px 12px 12px 40px; border-radius: 20px; font-size: 0.95rem; border: 1px solid transparent; transition: var(--transition); }
+        .search-box input:focus { border-color: var(--primary); }
+        
+        .progress-container { display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+        .progress-bar { flex-grow: 1; height: 8px; background: var(--bg-color); border-radius: 4px; margin: 0 15px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #34d399); width: 0%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        .add-form { padding: 0 20px 15px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--border); transition: var(--transition); }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-row { display: flex; gap: 10px; }
+        .add-input { flex-grow: 1; padding: 12px; background: var(--bg-color); color: var(--text-main); border-radius: 12px; border: 1px solid transparent; transition: var(--transition); }
+        .add-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+        .qty-input { width: 70px; padding: 12px; text-align: center; background: var(--bg-color); color: var(--text-main); border-radius: 12px; border: 1px solid transparent; transition: var(--transition); }
+        .qty-input:focus { border-color: var(--primary); }
+        .cat-select { padding: 10px 12px; background: var(--bg-color); color: var(--text-main); border-radius: 12px; font-size: 0.9rem; width: 100%; border: 1px solid transparent; cursor: pointer; transition: var(--transition); }
+        .cat-select:focus { border-color: var(--primary); }
+        
+        .add-btn { background: var(--primary); color: white; width: 100%; padding: 14px; border-radius: 12px; font-size: 1rem; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); transition: var(--transition); }
+        .add-btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 12px -2px rgba(16, 185, 129, 0.4); }
+        .add-btn:active:not(:disabled) { transform: translateY(0); }
+        .add-btn:disabled { background: var(--text-muted); cursor: not-allowed; box-shadow: none; opacity: 0.7; }
+
+        .list-container { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        .list-container::-webkit-scrollbar { width: 6px; }
+        .list-container::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 10px; }
+
+        .category-group h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .shopping-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+        
+        .list-item { background: var(--bg-color); padding: 15px; border-radius: var(--radius); display: flex; align-items: center; justify-content: space-between; gap: 15px; animation: slideIn 0.3s ease; transition: var(--transition); border: 1px solid transparent; }
+        .list-item:hover { border-color: var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .list-item.completed { opacity: 0.6; background: transparent; border: 1px dashed var(--border); box-shadow: none; }
+        .list-item.completed .item-name { text-decoration: line-through; color: var(--text-muted); }
+
+        .item-left { display: flex; align-items: center; gap: 15px; flex-grow: 1; overflow: hidden; }
+        .checkbox { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--text-muted); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: var(--transition); flex-shrink: 0; background: var(--surface); }
+        .checkbox i { color: white; font-size: 14px; opacity: 0; transition: var(--transition); }
+        .list-item.completed .checkbox { background: var(--primary); border-color: var(--primary); }
+        .list-item.completed .checkbox i { opacity: 1; }
+
+        .item-details { display: flex; flex-direction: column; overflow: hidden; }
+        .item-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-qty { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+        .item-actions { display: flex; gap: 5px; }
+        .action-btn { background: var(--surface); padding: 8px; border-radius: 8px; color: var(--text-muted); box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        .action-btn.delete:hover { color: var(--danger); border-color: var(--danger); background: rgba(239, 68, 68, 0.05); }
+        .action-btn.edit:hover { color: var(--primary); border-color: var(--primary); background: rgba(16, 185, 129, 0.05); }
+
+        .shopping-mode-active .add-form { display: none; }
+        .shopping-mode-active .search-box { display: none; }
+        .shopping-mode-active .header { padding: 10px 20px; }
+        .shopping-mode-active .list-item:not(.completed) { transform: scale(1.02); box-shadow: var(--shadow); background: var(--surface); border-left: 4px solid var(--primary); }
+
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .empty-state i { font-size: 3.5rem; opacity: 0.5; color: var(--primary); }
+        
+        .login-btn { background: #4285F4; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-top: 20px; transition: var(--transition); box-shadow: 0 4px 6px rgba(66, 133, 244, 0.3); font-size: 1rem; }
+        .login-btn:hover { background: #3367D6; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(66, 133, 244, 0.4); }
+
+        /* ================= MODAL GESTIÓN DE GRUPOS ================= */
+        .modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content { background: var(--surface); width: 95%; max-width: 400px; max-height: 90vh; overflow-y: auto; border-radius: 24px; padding: 25px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; display: flex; flex-direction: column; gap: 15px; }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .modal-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 10px; }
+        
+        .close-modal { position: absolute; top: 15px; right: 15px; background: var(--bg-color); color: var(--text-muted); font-size: 1.2rem; width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; transition: var(--transition); }
+        .close-modal:hover { background: var(--danger); color: white; }
+        
+        .modal-header { text-align: center; margin-bottom: 10px; }
+        .modal-header i { font-size: 2.5rem; color: var(--primary); margin-bottom: 5px; }
+        .modal-header h2 { font-size: 1.4rem; color: var(--text-main); margin-bottom: 5px; }
+
+        /* Selector de Grupos */
+        .group-selector-box { background: rgba(16, 185, 129, 0.05); padding: 15px; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+        .group-selector-box label { font-size: 0.8rem; font-weight: bold; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .group-select { padding: 12px; background: var(--surface); color: var(--text-main); border-radius: 12px; font-size: 1rem; font-weight: bold; width: 100%; border: 1px solid var(--border); cursor: pointer; transition: var(--transition); }
+        .group-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+
+        .code-box { background: var(--bg-color); padding: 12px 15px; border-radius: 12px; border: 2px dashed var(--primary); display: flex; justify-content: space-between; align-items: center; }
+        .code-display { font-family: 'Courier New', Courier, monospace; font-size: 1.4rem; font-weight: bold; color: var(--primary); letter-spacing: 2px; }
+        .copy-btn { background: var(--primary); color: white; border: none; width: 40px; height: 40px; border-radius: 10px; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; transition: var(--transition); }
+        .copy-btn:hover { background: var(--primary-hover); transform: scale(1.05); }
+
+        .whatsapp-btn { background: #25D366; color: white; width: 100%; padding: 12px; border-radius: 12px; font-weight: bold; font-size: 0.95rem; display: flex; justify-content: center; align-items: center; gap: 8px; text-decoration: none; transition: var(--transition); box-shadow: 0 4px 6px rgba(37, 211, 102, 0.3); border: none; cursor: pointer; }
+        .whatsapp-btn:hover { background: #128C7E; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(37, 211, 102, 0.4); }
+
+        .divider { height: 1px; background: var(--border); margin: 5px 0; position: relative; }
+        .divider::after { content: 'NUEVO GRUPO'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface); padding: 0 10px; color: var(--text-muted); font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; }
+
+        .action-section { display: flex; flex-direction: column; gap: 10px; background: var(--bg-color); padding: 15px; border-radius: 16px; border: 1px solid var(--border); }
+        .action-section p { font-size: 0.85rem; color: var(--text-muted); text-align: center; font-weight: 500; margin-bottom: -5px; }
+        .modal-input { padding: 12px 15px; background: var(--surface); color: var(--text-main); border-radius: 12px; border: 1px solid var(--border); font-size: 0.95rem; transition: var(--transition); width: 100%; }
+        .modal-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+        .modal-input.code-style { font-family: 'Courier New', Courier, monospace; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; text-align: center; }
+        
+        .modal-action-btn { background: var(--text-main); color: var(--surface); border: none; width: 100%; padding: 12px; border-radius: 12px; font-weight: 600; font-size: 0.95rem; transition: var(--transition); display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .modal-action-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .modal-action-btn.secondary { background: transparent; color: var(--text-main); border: 2px solid var(--border); }
+        .modal-action-btn.secondary:hover { background: var(--bg-color); border-color: var(--text-muted); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 0; }
+            .app-container { border-radius: 0; max-height: 100vh; height: 100vh; }
+            .modal-overlay { position: fixed; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="app">
+        <header class="header">
+            <h1 id="header-title">
+                <i class="ph-fill ph-basket"></i> SwiftCart 
+                <span class="group-badge" id="header-badge" style="display: none;">Cargando...</span>
+            </h1>
+            <div class="header-actions">
+                <button class="icon-btn" id="btn-theme" title="Cambiar Tema"><i class="ph ph-moon"></i></button>
+                <button class="icon-btn" id="btn-shop-mode" title="Modo Compra Activa"><i class="ph ph-shopping-cart"></i></button>
+                <button class="icon-btn" id="btn-share" title="Mis Grupos" style="display: none;"><i class="ph-fill ph-users-three"></i></button>
+                <button class="icon-btn" id="btn-clear" title="Limpiar Lista"><i class="ph ph-trash"></i></button>
+                <button class="icon-btn" id="btn-logout" title="Cerrar Sesión" style="display: none;"><i class="ph ph-sign-out"></i></button>
+            </div>
+        </header>
+
+        <div class="top-bar">
+            <div class="search-box">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" id="search-input" placeholder="Buscar en la lista...">
+            </div>
+            <div class="progress-container">
+                <span id="stats-text">0 / 0</span>
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+                <span id="stats-percent">0%</span>
+            </div>
+        </div>
+
+        <form class="add-form" id="add-form">
+            <div class="input-group">
+                <div class="input-row">
+                    <input type="text" id="item-name" class="add-input" placeholder="¿Qué necesitas?" required autocomplete="off" disabled>
+                    <input type="number" id="item-qty" class="qty-input" value="1" min="1" title="Cantidad" required disabled>
+                </div>
+                <select id="item-category" class="cat-select" disabled>
+                    <option value="Sin categoría">🛒 Sin categoría</option>
+                    <option value="Frutas y Verduras">🍎 Frutas y Verduras</option>
+                    <option value="Carnes y Pescados">🥩 Carnes y Pescados</option>
+                    <option value="Lácteos">🥛 Lácteos</option>
+                    <option value="Despensa">🥫 Despensa</option>
+                    <option value="Limpieza">🧼 Limpieza</option>
+                </select>
+            </div>
+            <button type="submit" class="add-btn" id="btn-submit" disabled>
+                <i class="ph-bold ph-plus"></i> Añadir a la lista
+            </button>
+        </form>
+
+        <div class="list-container" id="list-container">
+            <div class="empty-state">
+                <i class="ph ph-lock-key"></i>
+                <p>Inicia sesión para usar tus listas</p>
+                <button class="login-btn" id="btn-login">
+                    <i class="ph-bold ph-google-logo"></i> Iniciar sesión con Google
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="share-modal">
+            <div class="modal-content">
+                <button class="close-modal" id="btn-close-modal"><i class="ph-bold ph-x"></i></button>
+                
+                <div class="modal-header">
+                    <i class="ph-fill ph-users-three"></i>
+                    <h2>Mis Grupos</h2>
+                </div>
+                
+                <div class="group-selector-box">
+                    <label>Estás viendo la lista de:</label>
+                    <select id="group-selector" class="group-select"></select>
+                    
+                    <div class="code-box">
+                        <span class="code-display" id="modal-code">...</span>
+                        <button class="copy-btn" id="btn-copy-code" title="Copiar código"><i class="ph-bold ph-copy"></i></button>
+                    </div>
+                    
+                    <button class="whatsapp-btn" id="btn-whatsapp">
+                        <i class="ph-bold ph-whatsapp-logo" style="font-size: 1.2rem;"></i> Compartir este grupo
+                    </button>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="action-section">
+                    <p>Crear una lista nueva</p>
+                    <input type="text" id="new-group-name" class="modal-input" placeholder="Nombre (ej: Barbacoa, Oficina)" autocomplete="off">
+                    <button class="modal-action-btn" id="btn-create-group"><i class="ph-bold ph-plus"></i> Crear e ir al grupo</button>
+                </div>
+
+                <div class="divider" style="margin-top: 10px;"></div>
+
+                <div class="action-section" style="background: transparent; border: none; padding: 0;">
+                    <p>¿Tienes una invitación?</p>
+                    <input type="text" id="join-input" class="modal-input code-style" placeholder="Pega el código aquí..." autocomplete="off" maxlength="8">
+                    <button class="modal-action-btn secondary" id="btn-join-group">Unirse a la lista</button>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // ==========================================
+        // CONFIGURACIÓN DE FIREBASE
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1pPEB76IK12DpczZ3F_I11N8R1Tr6Jfk",
+            authDomain: "carrito-compra-e3061.firebaseapp.com",
+            projectId: "carrito-compra-e3061",
+            storageBucket: "carrito-compra-e3061.firebasestorage.app",
+            messagingSenderId: "1050849373855",
+            appId: "1:1050849373855:web:8c6985c154d6edad8a3caa",
+            measurementId: "G-LL255XZFXZ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let userGroups = []; // Array de {id: 'CODE', name: 'Nombre'}
+        let currentGroupId = null; 
+        let unsubscribeSnapshot = null;
+
+        const AppState = {
+            items: [], 
+            theme: localStorage.getItem('swiftcart_theme') || 'light',
+            shoppingMode: false,
+            searchQuery: ''
+        };
+
+        const DOM = {
+            app: document.getElementById('app'),
+            headerTitle: document.getElementById('header-title'),
+            headerBadge: document.getElementById('header-badge'),
+            form: document.getElementById('add-form'),
+            nameInput: document.getElementById('item-name'),
+            qtyInput: document.getElementById('item-qty'),
+            catSelect: document.getElementById('item-category'),
+            submitBtn: document.getElementById('btn-submit'),
+            listContainer: document.getElementById('list-container'),
+            searchInput: document.getElementById('search-input'),
+            btnTheme: document.getElementById('btn-theme'),
+            btnShopMode: document.getElementById('btn-shop-mode'),
+            btnClear: document.getElementById('btn-clear'),
+            btnLogout: document.getElementById('btn-logout'),
+            btnShare: document.getElementById('btn-share'),
+            statsText: document.getElementById('stats-text'),
+            statsPercent: document.getElementById('stats-percent'),
+            progressFill: document.getElementById('progress-fill'),
+            
+            // Modal Elements
+            shareModal: document.getElementById('share-modal'),
+            btnCloseModal: document.getElementById('btn-close-modal'),
+            groupSelector: document.getElementById('group-selector'),
+            modalCode: document.getElementById('modal-code'),
+            btnCopyCode: document.getElementById('btn-copy-code'),
+            btnWhatsapp: document.getElementById('btn-whatsapp'),
+            
+            newGroupName: document.getElementById('new-group-name'),
+            btnCreateGroup: document.getElementById('btn-create-group'),
+            joinInput: document.getElementById('join-input'),
+            btnJoinGroup: document.getElementById('btn-join-group')
+        };
+
+        applyTheme();
+
+        // ==========================================
+        // FUNCIONES DE ESTADO MULTI-GRUPO
+        // ==========================================
+        function generarCodigoRandom() {
+            const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let codigo = '';
+            for (let i = 0; i < 8; i++) {
+                codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+            }
+            return codigo;
+        }
+
+        // Crea claves únicas para cada usuario en el navegador
+        function getStorageKey(key) {
+            return `swiftcart_${key}_${currentUser.uid}`;
+        }
+
+        function loadUserGroupsLocally() {
+            const savedGroups = localStorage.getItem(getStorageKey('groups'));
+            userGroups = savedGroups ? JSON.parse(savedGroups) : [];
+            currentGroupId = localStorage.getItem(getStorageKey('active')) || null;
+        }
+
+        function saveUserGroupsLocally() {
+            localStorage.setItem(getStorageKey('groups'), JSON.stringify(userGroups));
+            if (currentGroupId) {
+                localStorage.setItem(getStorageKey('active'), currentGroupId);
+            }
+        }
+
+        function switchGroup(newGroupId) {
+            if (!newGroupId) return;
+            currentGroupId = newGroupId;
+            saveUserGroupsLocally();
+            renderHeaderAndModal();
+            
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            conectarALaNube();
+        }
+
+        function renderHeaderAndModal() {
+            // Actualizar etiqueta del Header
+            const activeGroupObj = userGroups.find(g => g.id === currentGroupId);
+            if (activeGroupObj) {
+                DOM.headerBadge.style.display = 'inline-block';
+                DOM.headerBadge.textContent = activeGroupObj.name;
+                DOM.modalCode.textContent = currentGroupId;
+            }
+
+            // Actualizar el menú desplegable del Modal
+            DOM.groupSelector.innerHTML = '';
+            userGroups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.name;
+                if (group.id === currentGroupId) option.selected = true;
+                DOM.groupSelector.appendChild(option);
+            });
+        }
+
+        // ==========================================
+        // AUTENTICACIÓN Y DEEP LINKING
+        // ==========================================
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                loadUserGroupsLocally();
+                
+                // Deep Linking (Entrando por WhatsApp)
+                const urlParams = new URLSearchParams(window.location.search);
+                const joinCodeFromUrl = urlParams.get('join');
+
+                if (joinCodeFromUrl && joinCodeFromUrl.length > 0) {
+                    const code = joinCodeFromUrl.toUpperCase();
+                    // Si no está en mis grupos, lo añado
+                    if (!userGroups.find(g => g.id === code)) {
+                        let tempName = prompt("¡Te han invitado a una lista! Ponle un nombre para guardarla:", "Nueva Lista");
+                        if (!tempName) tempName = `Lista Invitada (${code.substring(0,3)})`;
+                        userGroups.push({ id: code, name: tempName });
+                    }
+                    currentGroupId = code;
+                    saveUserGroupsLocally();
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } else {
+                    // Flujo normal: Si es usuario nuevo, crear su primera lista
+                    if (userGroups.length === 0) { 
+                        const newCode = generarCodigoRandom();
+                        userGroups.push({ id: newCode, name: "Mi Lista Casa" });
+                        currentGroupId = newCode;
+                        saveUserGroupsLocally();
+                    } else if (!currentGroupId || !userGroups.find(g => g.id === currentGroupId)) {
+                        // Por seguridad, si el ID activo se corrompió, seleccionamos el primero
+                        currentGroupId = userGroups[0].id;
+                        saveUserGroupsLocally();
+                    }
+                }
+                
+                DOM.btnLogout.style.display = 'block';
+                DOM.btnShare.style.display = 'block';
+                enableForm(true);
+                renderHeaderAndModal();
+                conectarALaNube();
+            } else {
+                // CIERRE DE SESIÓN
+                currentUser = null;
+                userGroups = [];
+                currentGroupId = null;
+                AppState.items = [];
+                
+                DOM.headerBadge.style.display = 'none';
+                DOM.btnLogout.style.display = 'none';
+                DOM.btnShare.style.display = 'none';
+                enableForm(false);
+                
+                if (unsubscribeSnapshot) unsubscribeSnapshot();
+
+                DOM.listContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="ph ph-lock-key"></i>
+                        <p>Inicia sesión para usar tus listas</p>
+                        <button class="login-btn" id="btn-login-action">
+                            <i class="ph-bold ph-google-logo"></i> Iniciar sesión con Google
+                        </button>
+                    </div>`;
+                
+                document.getElementById('btn-login-action').addEventListener('click', () => {
+                    signInWithPopup(auth, provider).catch(error => alert("Error al entrar: " + error.message));
+                });
+                
+                updateStats();
+            }
+        });
+
+        DOM.btnLogout.addEventListener('click', () => {
+            if(confirm("¿Seguro que quieres cerrar sesión?")) {
+                signOut(auth);
+            }
+        });
+
+        function enableForm(isEnabled) {
+            DOM.nameInput.disabled = !isEnabled;
+            DOM.qtyInput.disabled = !isEnabled;
+            DOM.catSelect.disabled = !isEnabled;
+            DOM.submitBtn.disabled = !isEnabled;
+        }
+
+        // ==========================================
+        // LÓGICA DEL MODAL: CREAR, UNIRSE, CAMBIAR Y COMPARTIR
+        // ==========================================
+        DOM.btnShare.addEventListener('click', () => {
+            renderHeaderAndModal(); // Asegurar que los datos están al día
+            DOM.shareModal.classList.add('active');
+        });
+
+        DOM.btnCloseModal.addEventListener('click', () => DOM.shareModal.classList.remove('active'));
+
+        // 1. Cambiar de grupo en el Selector
+        DOM.groupSelector.addEventListener('change', (e) => {
+            switchGroup(e.target.value);
+        });
+
+        // 2. Crear Grupo Nuevo
+        DOM.btnCreateGroup.addEventListener('click', () => {
+            const name = DOM.newGroupName.value.trim();
+            if (!name) return alert("Por favor, ponle un nombre al nuevo grupo.");
+            
+            const newCode = generarCodigoRandom();
+            userGroups.push({ id: newCode, name: name });
+            DOM.newGroupName.value = '';
+            
+            alert(`¡Has creado la lista "${name}"!`);
+            switchGroup(newCode); // Automáticamente te mete en él
+        });
+
+        // 3. Unirse a un grupo por Código
+        DOM.btnJoinGroup.addEventListener('click', () => {
+            const code = DOM.joinInput.value.trim().toUpperCase();
+            if (code.length !== 8) return alert("El código debe tener 8 caracteres.");
+            
+            if (userGroups.find(g => g.id === code)) {
+                alert("Ya perteneces a este grupo. Te cambiaremos a él.");
+                DOM.joinInput.value = '';
+                DOM.shareModal.classList.remove('active');
+                switchGroup(code);
+                return;
+            }
+
+            let groupName = prompt(`Te vas a unir al grupo ${code}. ¿Cómo quieres llamarlo en tu móvil?`, "Nueva Lista Compartida");
+            if (!groupName) groupName = `Grupo ${code.substring(0,4)}`;
+
+            userGroups.push({ id: code, name: groupName });
+            DOM.joinInput.value = '';
+            DOM.shareModal.classList.remove('active');
+            
+            alert(`¡Éxito! Te has conectado a la lista "${groupName}"`);
+            switchGroup(code);
+        });
+
+        DOM.joinInput.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+
+        // 4. Compartir WhatsApp y Copiar
+        DOM.btnCopyCode.addEventListener('click', () => {
+            navigator.clipboard.writeText(currentGroupId).then(() => {
+                const icon = DOM.btnCopyCode.innerHTML;
+                DOM.btnCopyCode.innerHTML = '<i class="ph-bold ph-check"></i>';
+                DOM.btnCopyCode.style.backgroundColor = '#10b981'; 
+                setTimeout(() => {
+                    DOM.btnCopyCode.innerHTML = icon;
+                    DOM.btnCopyCode.style.backgroundColor = '';
+                }, 2000);
+            });
+        });
+
+        DOM.btnWhatsapp.addEventListener('click', () => {
+            const activeGroupObj = userGroups.find(g => g.id === currentGroupId);
+            const groupName = activeGroupObj ? activeGroupObj.name : 'Compartida';
+            const currentUrl = window.location.origin + window.location.pathname;
+            const linkMagico = `${currentUrl}?join=${currentGroupId}`;
+            
+            const text = `¡Hola! Únete a mi lista "${groupName}" en SwiftCart 🛒\n\nToca este enlace mágico para entrar directamente:\n${linkMagico}\n\nO si ya tienes la app, introduce este código: *${currentGroupId}*`;
+            const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank');
+        });
+
+        // Cerrar modal al tocar fuera
+        DOM.shareModal.addEventListener('click', (e) => {
+            if (e.target === DOM.shareModal) DOM.shareModal.classList.remove('active');
+        });
+
+        // ==========================================
+        // BASE DE DATOS Y RENDERIZADO (Con ordenamiento JS)
+        // ==========================================
+        function conectarALaNube() {
+            if (!currentGroupId) return;
+
+            DOM.listContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="ph ph-spinner ph-spin"></i>
+                    <p>Cargando lista...</p>
+                </div>`;
+
+            const listRef = collection(db, "items_v3");
+            const q = query(listRef, where("groupId", "==", currentGroupId));
+            
+            unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+                AppState.items = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                // Ordenamos por tiempo de creación en JavaScript
+                AppState.items.sort((a, b) => a.timestamp - b.timestamp);
+                updateUI();
+            }, (error) => {
+                console.error("Error conectando a Firebase:", error);
+                DOM.listContainer.innerHTML = `<div class="empty-state"><i class="ph ph-warning" style="color: var(--danger)"></i><p>Error de conexión.</p></div>`;
+            });
+        }
+        
+        async function addItem(e) {
+            e.preventDefault();
+            const name = DOM.nameInput.value.trim();
+            if (!name || !currentUser || !currentGroupId) return;
+
+            try {
+                await addDoc(collection(db, "items_v3"), {
+                    name: name,
+                    qty: parseInt(DOM.qtyInput.value) || 1,
+                    category: DOM.catSelect.value,
+                    completed: false,
+                    groupId: currentGroupId,
+                    createdBy: currentUser.uid,
+                    timestamp: Date.now()
+                });
+                
+                DOM.nameInput.value = '';
+                DOM.qtyInput.value = '1';
+                DOM.nameInput.focus();
+            } catch (error) {
+                console.error("Error añadiendo:", error);
+                alert("Error al añadir producto.");
+            }
+        }
+
+        async function toggleItemStatus(id) {
+            const item = AppState.items.find(i => i.id === id);
+            if (item) {
+                const itemDoc = doc(db, "items_v3", id);
+                await updateDoc(itemDoc, { completed: !item.completed });
+            }
+        }
+
+        async function deleteItem(id) {
+            const itemDoc = doc(db, "items_v3", id);
+            await deleteDoc(itemDoc);
+        }
+
+        async function editItem(id) {
+            const item = AppState.items.find(i => i.id === id);
+            if (!item) return;
+            
+            const newName = prompt('Editar producto:', item.name);
+            if (newName && newName.trim() !== '') {
+                const itemDoc = doc(db, "items_v3", id);
+                await updateDoc(itemDoc, { name: newName.trim() });
+            }
+        }
+
+        async function clearCompleted() {
+            if (AppState.items.length === 0) return;
+            if (confirm('¿Eliminar todos los productos de esta lista?')) {
+                AppState.items.forEach(async (item) => {
+                    const itemDoc = doc(db, "items_v3", item.id);
+                    await deleteDoc(itemDoc);
+                });
+            }
+        }
+
+        function updateUI() {
+            renderList();
+            updateStats();
+        }
+
+        function updateStats() {
+            const total = AppState.items.length;
+            const completed = AppState.items.filter(i => i.completed).length;
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+            DOM.statsText.textContent = `${completed} / ${total}`;
+            DOM.statsPercent.textContent = `${percent}%`;
+            DOM.progressFill.style.width = `${percent}%`;
+            DOM.progressFill.style.background = percent === 100 && total > 0 ? '#10b981' : 'linear-gradient(90deg, var(--primary), #34d399)';
+        }
+
+        function renderList() {
+            DOM.listContainer.innerHTML = '';
+            
+            let filteredItems = AppState.items.filter(item => 
+                item.name.toLowerCase().includes(AppState.searchQuery.toLowerCase())
+            );
+
+            if (filteredItems.length === 0) {
+                DOM.listContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="ph ph-shopping-bag"></i>
+                        <p>${AppState.searchQuery ? 'No se encontraron productos' : 'La lista está vacía'}</p>
+                    </div>`;
+                return;
+            }
+
+            const grouped = filteredItems.reduce((acc, item) => {
+                if (!acc[item.category]) acc[item.category] = [];
+                acc[item.category].push(item);
+                return acc;
+            }, {});
+
+            for (const category in grouped) {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'category-group';
+                
+                grouped[category].sort((a, b) => (a.completed === b.completed) ? 0 : a.completed ? 1 : -1);
+
+                let itemsHTML = grouped[category].map(item => `
+                    <li class="list-item ${item.completed ? 'completed' : ''}" data-id="${item.id}">
+                        <div class="item-left">
+                            <div class="checkbox"><i class="ph-bold ph-check"></i></div>
+                            <div class="item-details">
+                                <span class="item-name">${item.name}</span>
+                                <span class="item-qty">Cant: ${item.qty}</span>
+                            </div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="action-btn edit" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                            <button class="action-btn delete" title="Eliminar"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </li>
+                `).join('');
+
+                groupDiv.innerHTML = `
+                    <h3>${category}</h3>
+                    <ul class="shopping-list">
+                        ${itemsHTML}
+                    </ul>
+                `;
+                DOM.listContainer.appendChild(groupDiv);
+            }
+        }
+
+        function toggleTheme() {
+            AppState.theme = AppState.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('swiftcart_theme', AppState.theme);
+            applyTheme();
+        }
+
+        function applyTheme() {
+            document.body.setAttribute('data-theme', AppState.theme);
+            DOM.btnTheme.innerHTML = AppState.theme === 'light' ? '<i class="ph-fill ph-moon"></i>' : '<i class="ph-fill ph-sun"></i>';
+        }
+
+        function toggleShoppingMode() {
+            AppState.shoppingMode = !AppState.shoppingMode;
+            DOM.app.classList.toggle('shopping-mode-active', AppState.shoppingMode);
+            DOM.btnShopMode.style.color = AppState.shoppingMode ? 'var(--primary)' : 'var(--text-muted)';
+        }
+
+        // ==========================================
+        // EVENT LISTENERS BÁSICOS
+        // ==========================================
+        DOM.form.addEventListener('submit', addItem);
+        DOM.searchInput.addEventListener('input', (e) => { AppState.searchQuery = e.target.value; renderList(); });
+        DOM.btnTheme.addEventListener('click', toggleTheme);
+        DOM.btnShopMode.addEventListener('click', toggleShoppingMode);
+        DOM.btnClear.addEventListener('click', clearCompleted);
+
+        DOM.listContainer.addEventListener('click', (e) => {
+            const listItem = e.target.closest('.list-item');
+            if (!listItem) return;
+            const id = listItem.dataset.id;
+            if (e.target.closest('.delete')) deleteItem(id);
+            else if (e.target.closest('.edit')) editItem(id);
+            else if (e.target.closest('.checkbox') || e.target.closest('.item-left')) toggleItemStatus(id);
+        });
+
+    </script>
+</body>
+</html>
