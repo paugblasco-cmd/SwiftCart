@@ -73,8 +73,10 @@
         .add-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
         .qty-input { width: 70px; padding: 12px; text-align: center; background: var(--bg-color); color: var(--text-main); border-radius: 12px; border: 1px solid transparent; transition: var(--transition); }
         .qty-input:focus { border-color: var(--primary); }
-        .cat-select { padding: 10px 12px; background: var(--bg-color); color: var(--text-main); border-radius: 12px; font-size: 0.9rem; width: 100%; border: 1px solid transparent; cursor: pointer; transition: var(--transition); }
-        .cat-select:focus { border-color: var(--primary); }
+        
+        /* NUEVO ESTILO PARA EL INPUT DE CATEGORÍA */
+        .cat-input { padding: 12px; background: var(--bg-color); color: var(--text-main); border-radius: 12px; font-size: 0.95rem; width: 100%; border: 1px solid transparent; transition: var(--transition); }
+        .cat-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); outline: none; }
         
         .add-btn { background: var(--primary); color: white; width: 100%; padding: 14px; border-radius: 12px; font-size: 1rem; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); transition: var(--transition); }
         .add-btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 12px -2px rgba(16, 185, 129, 0.4); }
@@ -221,14 +223,7 @@
                     <input type="text" id="item-name" class="add-input" placeholder="¿Qué necesitas?" required autocomplete="off" disabled>
                     <input type="number" id="item-qty" class="qty-input" value="1" min="1" title="Cantidad" required disabled>
                 </div>
-                <select id="item-category" class="cat-select" disabled>
-                    <option value="Sin categoría">🛒 Sin categoría</option>
-                    <option value="Frutas y Verduras">🍎 Frutas y Verduras</option>
-                    <option value="Carnes y Pescados">🥩 Carnes y Pescados</option>
-                    <option value="Lácteos">🥛 Lácteos</option>
-                    <option value="Despensa">🥫 Despensa</option>
-                    <option value="Limpieza">🧼 Limpieza</option>
-                </select>
+                <input type="text" id="item-category" class="cat-input" placeholder="Categoría (Ej: Fruta, Limpieza...)" autocomplete="off" disabled>
             </div>
             <button type="submit" class="add-btn" id="btn-submit" disabled>
                 <i class="ph-bold ph-plus"></i> Añadir a la lista
@@ -331,7 +326,7 @@
             form: document.getElementById('add-form'),
             nameInput: document.getElementById('item-name'),
             qtyInput: document.getElementById('item-qty'),
-            catSelect: document.getElementById('item-category'),
+            catInput: document.getElementById('item-category'), // CAMBIO: Actualizado al input de texto
             submitBtn: document.getElementById('btn-submit'),
             listContainer: document.getElementById('list-container'),
             searchInput: document.getElementById('search-input'),
@@ -339,7 +334,7 @@
             btnShopMode: document.getElementById('btn-shop-mode'),
             btnClear: document.getElementById('btn-clear'),
             btnLogout: document.getElementById('btn-logout'),
-            btnShare: document.getElementById('btn-share'), // Viejo botón (ahora abre modal también)
+            btnShare: document.getElementById('btn-share'), 
             statsText: document.getElementById('stats-text'),
             statsPercent: document.getElementById('stats-percent'),
             progressFill: document.getElementById('progress-fill'),
@@ -377,7 +372,6 @@
             return codigo;
         }
 
-        // Crea claves únicas para cada usuario en el navegador
         function getStorageKey(key) {
             return `swiftcart_${key}_${currentUser.uid}`;
         }
@@ -406,7 +400,6 @@
         }
 
         function renderHeaderAndModal() {
-            // Actualizar etiqueta del Header tradicional y Modal
             const activeGroupObj = userGroups.find(g => g.id === currentGroupId);
             if (activeGroupObj) {
                 DOM.headerBadge.style.display = 'inline-block';
@@ -414,17 +407,14 @@
                 DOM.modalCode.textContent = currentGroupId;
             }
 
-            // Actualizar AMBOS selectores (el nuevo rápido y el del modal)
             DOM.groupSelector.innerHTML = '';
             DOM.quickGroupSelector.innerHTML = '';
             
             userGroups.forEach(group => {
-                // Para el modal
                 const optionModal = document.createElement('option');
                 optionModal.value = group.id;
                 optionModal.textContent = group.name;
                 
-                // Para el selector rápido superior
                 const optionQuick = document.createElement('option');
                 optionQuick.value = group.id;
                 optionQuick.textContent = group.name;
@@ -447,13 +437,11 @@
                 currentUser = user;
                 loadUserGroupsLocally();
                 
-                // Deep Linking (Entrando por WhatsApp)
                 const urlParams = new URLSearchParams(window.location.search);
                 const joinCodeFromUrl = urlParams.get('join');
 
                 if (joinCodeFromUrl && joinCodeFromUrl.length > 0) {
                     const code = joinCodeFromUrl.toUpperCase();
-                    // Si no está en mis grupos, lo añado
                     if (!userGroups.find(g => g.id === code)) {
                         let tempName = prompt("¡Te han invitado a una lista! Ponle un nombre para guardarla:", "Nueva Lista");
                         if (!tempName) tempName = `Lista Invitada (${code.substring(0,3)})`;
@@ -463,14 +451,12 @@
                     saveUserGroupsLocally();
                     window.history.replaceState({}, document.title, window.location.pathname);
                 } else {
-                    // Flujo normal: Si es usuario nuevo, crear su primera lista
                     if (userGroups.length === 0) { 
                         const newCode = generarCodigoRandom();
                         userGroups.push({ id: newCode, name: "Mi Lista Casa" });
                         currentGroupId = newCode;
                         saveUserGroupsLocally();
                     } else if (!currentGroupId || !userGroups.find(g => g.id === currentGroupId)) {
-                        // Por seguridad, si el ID activo se corrompió, seleccionamos el primero
                         currentGroupId = userGroups[0].id;
                         saveUserGroupsLocally();
                     }
@@ -478,12 +464,11 @@
                 
                 DOM.btnLogout.style.display = 'block';
                 DOM.btnShare.style.display = 'block';
-                DOM.activeListBanner.style.display = 'flex'; // Mostrar banner nuevo
+                DOM.activeListBanner.style.display = 'flex'; 
                 enableForm(true);
                 renderHeaderAndModal();
                 conectarALaNube();
             } else {
-                // CIERRE DE SESIÓN
                 currentUser = null;
                 userGroups = [];
                 currentGroupId = null;
@@ -492,7 +477,7 @@
                 DOM.headerBadge.style.display = 'none';
                 DOM.btnLogout.style.display = 'none';
                 DOM.btnShare.style.display = 'none';
-                DOM.activeListBanner.style.display = 'none'; // Ocultar banner nuevo
+                DOM.activeListBanner.style.display = 'none'; 
                 enableForm(false);
                 
                 if (unsubscribeSnapshot) unsubscribeSnapshot();
@@ -523,7 +508,7 @@
         function enableForm(isEnabled) {
             DOM.nameInput.disabled = !isEnabled;
             DOM.qtyInput.disabled = !isEnabled;
-            DOM.catSelect.disabled = !isEnabled;
+            DOM.catInput.disabled = !isEnabled; // CAMBIO: Aplicar a la entrada de texto
             DOM.submitBtn.disabled = !isEnabled;
         }
 
@@ -531,9 +516,8 @@
         // LÓGICA DEL MODAL: CREAR, UNIRSE, CAMBIAR Y COMPARTIR
         // ==========================================
         
-        // Abrir Modal con botón viejo (Icono superior) o Nuevo (Botón grande)
         const openShareModal = () => {
-            renderHeaderAndModal(); // Asegurar que los datos están al día
+            renderHeaderAndModal(); 
             DOM.shareModal.classList.add('active');
         };
         DOM.btnShare.addEventListener('click', openShareModal);
@@ -541,11 +525,9 @@
 
         DOM.btnCloseModal.addEventListener('click', () => DOM.shareModal.classList.remove('active'));
 
-        // 1. Cambiar de grupo en el Selector del Modal y en el Selector Rápido
         DOM.groupSelector.addEventListener('change', (e) => switchGroup(e.target.value));
         DOM.quickGroupSelector.addEventListener('change', (e) => switchGroup(e.target.value));
 
-        // 2. Crear Grupo Nuevo
         DOM.btnCreateGroup.addEventListener('click', () => {
             const name = DOM.newGroupName.value.trim();
             if (!name) return alert("Por favor, ponle un nombre al nuevo grupo.");
@@ -555,10 +537,9 @@
             DOM.newGroupName.value = '';
             
             alert(`¡Has creado la lista "${name}"!`);
-            switchGroup(newCode); // Automáticamente te mete en él
+            switchGroup(newCode); 
         });
 
-        // 3. Unirse a un grupo por Código
         DOM.btnJoinGroup.addEventListener('click', () => {
             const code = DOM.joinInput.value.trim().toUpperCase();
             if (code.length !== 8) return alert("El código debe tener 8 caracteres.");
@@ -584,7 +565,6 @@
 
         DOM.joinInput.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
 
-        // 4. Compartir WhatsApp y Copiar
         DOM.btnCopyCode.addEventListener('click', () => {
             navigator.clipboard.writeText(currentGroupId).then(() => {
                 const icon = DOM.btnCopyCode.innerHTML;
@@ -608,13 +588,12 @@
             window.open(url, '_blank');
         });
 
-        // Cerrar modal al tocar fuera
         DOM.shareModal.addEventListener('click', (e) => {
             if (e.target === DOM.shareModal) DOM.shareModal.classList.remove('active');
         });
 
         // ==========================================
-        // BASE DE DATOS Y RENDERIZADO (Con ordenamiento JS)
+        // BASE DE DATOS Y RENDERIZADO 
         // ==========================================
         function conectarALaNube() {
             if (!currentGroupId) return;
@@ -633,7 +612,6 @@
                     id: doc.id,
                     ...doc.data()
                 }));
-                // Ordenamos por tiempo de creación en JavaScript
                 AppState.items.sort((a, b) => a.timestamp - b.timestamp);
                 updateUI();
             }, (error) => {
@@ -647,11 +625,15 @@
             const name = DOM.nameInput.value.trim();
             if (!name || !currentUser || !currentGroupId) return;
 
+            // CAMBIO: Tomamos la categoría escrita y la capitalizamos bien. Si está vacía, usamos "Sin categoría".
+            let catRaw = DOM.catInput.value.trim();
+            let finalCategory = catRaw ? catRaw.charAt(0).toUpperCase() + catRaw.slice(1).toLowerCase() : "Sin categoría";
+
             try {
                 await addDoc(collection(db, "items_v3"), {
                     name: name,
                     qty: parseInt(DOM.qtyInput.value) || 1,
-                    category: DOM.catSelect.value,
+                    category: finalCategory,
                     completed: false,
                     groupId: currentGroupId,
                     createdBy: currentUser.uid,
@@ -660,6 +642,7 @@
                 
                 DOM.nameInput.value = '';
                 DOM.qtyInput.value = '1';
+                DOM.catInput.value = ''; // CAMBIO: Limpiamos también el campo de categoría tras añadir
                 DOM.nameInput.focus();
             } catch (error) {
                 console.error("Error añadiendo:", error);
