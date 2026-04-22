@@ -47,6 +47,15 @@
         .icon-btn { background: transparent; color: var(--text-muted); font-size: 1.5rem; padding: 8px; border-radius: 50%; }
         .icon-btn:hover { background: var(--border); color: var(--text-main); transform: scale(1.05); }
 
+        /* ================= NUEVO BANNER DE LISTA ACTIVA ================= */
+        .active-list-banner { padding: 15px 20px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+        .list-selector-wrapper { position: relative; flex-grow: 1; display: flex; align-items: center; background: var(--bg-color); padding: 8px 15px; border-radius: 12px; border: 1px solid transparent; transition: var(--transition); }
+        .list-selector-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+        .quick-group-select { appearance: none; background: transparent; border: none; font-size: 1.2rem; font-weight: 800; color: var(--primary); width: 100%; cursor: pointer; padding-right: 25px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; outline: none; }
+        .list-selector-wrapper .drop-icon { position: absolute; right: 15px; color: var(--primary); font-size: 1.2rem; pointer-events: none; }
+        .prominent-share-btn { background: var(--primary); color: white; border: none; padding: 12px 16px; border-radius: 12px; font-weight: 700; font-size: 0.95rem; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); transition: var(--transition); cursor: pointer; white-space: nowrap; }
+        .prominent-share-btn:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 10px -1px rgba(16, 185, 129, 0.4); }
+
         .top-bar { padding: 15px 20px; display: flex; flex-direction: column; gap: 15px; }
         .search-box { position: relative; width: 100%; }
         .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
@@ -102,6 +111,7 @@
         .shopping-mode-active .add-form { display: none; }
         .shopping-mode-active .search-box { display: none; }
         .shopping-mode-active .header { padding: 10px 20px; }
+        .shopping-mode-active .prominent-share-btn { display: none; } /* Ocultar el botón de compartir en modo compra */
         .shopping-mode-active .list-item:not(.completed) { transform: scale(1.02); box-shadow: var(--shadow); background: var(--surface); border-left: 4px solid var(--primary); }
 
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
@@ -126,7 +136,7 @@
         .modal-header i { font-size: 2.5rem; color: var(--primary); margin-bottom: 5px; }
         .modal-header h2 { font-size: 1.4rem; color: var(--text-main); margin-bottom: 5px; }
 
-        /* Selector de Grupos */
+        /* Selector de Grupos dentro del Modal */
         .group-selector-box { background: rgba(16, 185, 129, 0.05); padding: 15px; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
         .group-selector-box label { font-size: 0.8rem; font-weight: bold; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
         .group-select { padding: 12px; background: var(--surface); color: var(--text-main); border-radius: 12px; font-size: 1rem; font-weight: bold; width: 100%; border: 1px solid var(--border); cursor: pointer; transition: var(--transition); }
@@ -182,6 +192,16 @@
                 <button class="icon-btn" id="btn-logout" title="Cerrar Sesión" style="display: none;"><i class="ph ph-sign-out"></i></button>
             </div>
         </header>
+
+        <div class="active-list-banner" id="active-list-banner" style="display: none;">
+            <div class="list-selector-wrapper">
+                <select id="quick-group-selector" class="quick-group-select" title="Cambiar de lista"></select>
+                <i class="ph-bold ph-caret-down drop-icon"></i>
+            </div>
+            <button class="prominent-share-btn" id="btn-prominent-share" title="Compartir esta lista">
+                <i class="ph-bold ph-user-plus"></i> Compartir
+            </button>
+        </div>
 
         <div class="top-bar">
             <div class="search-box">
@@ -319,10 +339,15 @@
             btnShopMode: document.getElementById('btn-shop-mode'),
             btnClear: document.getElementById('btn-clear'),
             btnLogout: document.getElementById('btn-logout'),
-            btnShare: document.getElementById('btn-share'),
+            btnShare: document.getElementById('btn-share'), // Viejo botón (ahora abre modal también)
             statsText: document.getElementById('stats-text'),
             statsPercent: document.getElementById('stats-percent'),
             progressFill: document.getElementById('progress-fill'),
+            
+            // Elementos del Nuevo Banner Activo
+            activeListBanner: document.getElementById('active-list-banner'),
+            quickGroupSelector: document.getElementById('quick-group-selector'),
+            btnProminentShare: document.getElementById('btn-prominent-share'),
             
             // Modal Elements
             shareModal: document.getElementById('share-modal'),
@@ -381,7 +406,7 @@
         }
 
         function renderHeaderAndModal() {
-            // Actualizar etiqueta del Header
+            // Actualizar etiqueta del Header tradicional y Modal
             const activeGroupObj = userGroups.find(g => g.id === currentGroupId);
             if (activeGroupObj) {
                 DOM.headerBadge.style.display = 'inline-block';
@@ -389,14 +414,28 @@
                 DOM.modalCode.textContent = currentGroupId;
             }
 
-            // Actualizar el menú desplegable del Modal
+            // Actualizar AMBOS selectores (el nuevo rápido y el del modal)
             DOM.groupSelector.innerHTML = '';
+            DOM.quickGroupSelector.innerHTML = '';
+            
             userGroups.forEach(group => {
-                const option = document.createElement('option');
-                option.value = group.id;
-                option.textContent = group.name;
-                if (group.id === currentGroupId) option.selected = true;
-                DOM.groupSelector.appendChild(option);
+                // Para el modal
+                const optionModal = document.createElement('option');
+                optionModal.value = group.id;
+                optionModal.textContent = group.name;
+                
+                // Para el selector rápido superior
+                const optionQuick = document.createElement('option');
+                optionQuick.value = group.id;
+                optionQuick.textContent = group.name;
+
+                if (group.id === currentGroupId) {
+                    optionModal.selected = true;
+                    optionQuick.selected = true;
+                }
+                
+                DOM.groupSelector.appendChild(optionModal);
+                DOM.quickGroupSelector.appendChild(optionQuick);
             });
         }
 
@@ -439,6 +478,7 @@
                 
                 DOM.btnLogout.style.display = 'block';
                 DOM.btnShare.style.display = 'block';
+                DOM.activeListBanner.style.display = 'flex'; // Mostrar banner nuevo
                 enableForm(true);
                 renderHeaderAndModal();
                 conectarALaNube();
@@ -452,6 +492,7 @@
                 DOM.headerBadge.style.display = 'none';
                 DOM.btnLogout.style.display = 'none';
                 DOM.btnShare.style.display = 'none';
+                DOM.activeListBanner.style.display = 'none'; // Ocultar banner nuevo
                 enableForm(false);
                 
                 if (unsubscribeSnapshot) unsubscribeSnapshot();
@@ -489,17 +530,20 @@
         // ==========================================
         // LÓGICA DEL MODAL: CREAR, UNIRSE, CAMBIAR Y COMPARTIR
         // ==========================================
-        DOM.btnShare.addEventListener('click', () => {
+        
+        // Abrir Modal con botón viejo (Icono superior) o Nuevo (Botón grande)
+        const openShareModal = () => {
             renderHeaderAndModal(); // Asegurar que los datos están al día
             DOM.shareModal.classList.add('active');
-        });
+        };
+        DOM.btnShare.addEventListener('click', openShareModal);
+        DOM.btnProminentShare.addEventListener('click', openShareModal);
 
         DOM.btnCloseModal.addEventListener('click', () => DOM.shareModal.classList.remove('active'));
 
-        // 1. Cambiar de grupo en el Selector
-        DOM.groupSelector.addEventListener('change', (e) => {
-            switchGroup(e.target.value);
-        });
+        // 1. Cambiar de grupo en el Selector del Modal y en el Selector Rápido
+        DOM.groupSelector.addEventListener('change', (e) => switchGroup(e.target.value));
+        DOM.quickGroupSelector.addEventListener('change', (e) => switchGroup(e.target.value));
 
         // 2. Crear Grupo Nuevo
         DOM.btnCreateGroup.addEventListener('click', () => {
