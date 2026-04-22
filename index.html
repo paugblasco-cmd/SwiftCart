@@ -74,7 +74,7 @@
         .qty-input { width: 70px; padding: 12px; text-align: center; background: var(--bg-color); color: var(--text-main); border-radius: 12px; border: 1px solid transparent; transition: var(--transition); }
         .qty-input:focus { border-color: var(--primary); }
         
-        /* NUEVO ESTILO PARA EL INPUT DE CATEGORÍA */
+        /* INPUT DE CATEGORÍA LIBRE */
         .cat-input { padding: 12px; background: var(--bg-color); color: var(--text-main); border-radius: 12px; font-size: 0.95rem; width: 100%; border: 1px solid transparent; transition: var(--transition); }
         .cat-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); outline: none; }
         
@@ -113,7 +113,7 @@
         .shopping-mode-active .add-form { display: none; }
         .shopping-mode-active .search-box { display: none; }
         .shopping-mode-active .header { padding: 10px 20px; }
-        .shopping-mode-active .prominent-share-btn { display: none; } /* Ocultar el botón de compartir en modo compra */
+        .shopping-mode-active .prominent-share-btn { display: none; } 
         .shopping-mode-active .list-item:not(.completed) { transform: scale(1.02); box-shadow: var(--shadow); background: var(--surface); border-left: 4px solid var(--primary); }
 
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
@@ -138,7 +138,6 @@
         .modal-header i { font-size: 2.5rem; color: var(--primary); margin-bottom: 5px; }
         .modal-header h2 { font-size: 1.4rem; color: var(--text-main); margin-bottom: 5px; }
 
-        /* Selector de Grupos dentro del Modal */
         .group-selector-box { background: rgba(16, 185, 129, 0.05); padding: 15px; border-radius: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
         .group-selector-box label { font-size: 0.8rem; font-weight: bold; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
         .group-select { padding: 12px; background: var(--surface); color: var(--text-main); border-radius: 12px; font-size: 1rem; font-weight: bold; width: 100%; border: 1px solid var(--border); cursor: pointer; transition: var(--transition); }
@@ -165,6 +164,12 @@
         .modal-action-btn:hover { opacity: 0.9; transform: translateY(-1px); }
         .modal-action-btn.secondary { background: transparent; color: var(--text-main); border: 2px solid var(--border); }
         .modal-action-btn.secondary:hover { background: var(--bg-color); border-color: var(--text-muted); }
+
+        /* ================= TOAST DESHACER (NUEVO) ================= */
+        .toast-container { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(150px); background: var(--text-main); color: var(--bg-color); padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s; opacity: 0; z-index: 2000; width: 90%; max-width: 400px; }
+        .toast-container.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast-btn { background: rgba(16, 185, 129, 0.15); color: var(--primary); font-weight: 700; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; transition: var(--transition); display: flex; align-items: center; gap: 5px; }
+        .toast-btn:hover { background: var(--primary); color: white; }
 
         @keyframes slideIn {
             from { opacity: 0; transform: translateY(-10px); }
@@ -282,11 +287,17 @@
             </div>
         </div>
 
+        <div id="toast-container" class="toast-container">
+            <span id="toast-message" style="font-weight: 500; font-size: 0.95rem;">Producto eliminado</span>
+            <button id="btn-undo" class="toast-btn"><i class="ph-bold ph-arrow-u-up-left"></i> Deshacer</button>
+        </div>
+
     </div>
 
     <script type="module">
+        // ATENCIÓN: Se ha añadido "setDoc" en las importaciones para la función Deshacer
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, where, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         // ==========================================
@@ -308,9 +319,13 @@
         const provider = new GoogleAuthProvider();
 
         let currentUser = null;
-        let userGroups = []; // Array de {id: 'CODE', name: 'Nombre'}
+        let userGroups = []; 
         let currentGroupId = null; 
         let unsubscribeSnapshot = null;
+        
+        // Variables para la función Deshacer
+        let deletedItemsBackup = [];
+        let toastTimeout = null;
 
         const AppState = {
             items: [], 
@@ -326,7 +341,7 @@
             form: document.getElementById('add-form'),
             nameInput: document.getElementById('item-name'),
             qtyInput: document.getElementById('item-qty'),
-            catInput: document.getElementById('item-category'), // CAMBIO: Actualizado al input de texto
+            catInput: document.getElementById('item-category'),
             submitBtn: document.getElementById('btn-submit'),
             listContainer: document.getElementById('list-container'),
             searchInput: document.getElementById('search-input'),
@@ -355,7 +370,12 @@
             newGroupName: document.getElementById('new-group-name'),
             btnCreateGroup: document.getElementById('btn-create-group'),
             joinInput: document.getElementById('join-input'),
-            btnJoinGroup: document.getElementById('btn-join-group')
+            btnJoinGroup: document.getElementById('btn-join-group'),
+
+            // Elementos Toast
+            toastContainer: document.getElementById('toast-container'),
+            toastMessage: document.getElementById('toast-message'),
+            btnUndo: document.getElementById('btn-undo')
         };
 
         applyTheme();
@@ -508,12 +528,12 @@
         function enableForm(isEnabled) {
             DOM.nameInput.disabled = !isEnabled;
             DOM.qtyInput.disabled = !isEnabled;
-            DOM.catInput.disabled = !isEnabled; // CAMBIO: Aplicar a la entrada de texto
+            DOM.catInput.disabled = !isEnabled;
             DOM.submitBtn.disabled = !isEnabled;
         }
 
         // ==========================================
-        // LÓGICA DEL MODAL: CREAR, UNIRSE, CAMBIAR Y COMPARTIR
+        // LÓGICA DEL MODAL Y GRUPOS
         // ==========================================
         
         const openShareModal = () => {
@@ -593,7 +613,7 @@
         });
 
         // ==========================================
-        // BASE DE DATOS Y RENDERIZADO 
+        // BASE DE DATOS, RENDERIZADO Y DESHACER
         // ==========================================
         function conectarALaNube() {
             if (!currentGroupId) return;
@@ -625,7 +645,6 @@
             const name = DOM.nameInput.value.trim();
             if (!name || !currentUser || !currentGroupId) return;
 
-            // CAMBIO: Tomamos la categoría escrita y la capitalizamos bien. Si está vacía, usamos "Sin categoría".
             let catRaw = DOM.catInput.value.trim();
             let finalCategory = catRaw ? catRaw.charAt(0).toUpperCase() + catRaw.slice(1).toLowerCase() : "Sin categoría";
 
@@ -642,7 +661,7 @@
                 
                 DOM.nameInput.value = '';
                 DOM.qtyInput.value = '1';
-                DOM.catInput.value = ''; // CAMBIO: Limpiamos también el campo de categoría tras añadir
+                DOM.catInput.value = ''; 
                 DOM.nameInput.focus();
             } catch (error) {
                 console.error("Error añadiendo:", error);
@@ -658,11 +677,6 @@
             }
         }
 
-        async function deleteItem(id) {
-            const itemDoc = doc(db, "items_v3", id);
-            await deleteDoc(itemDoc);
-        }
-
         async function editItem(id) {
             const item = AppState.items.find(i => i.id === id);
             if (!item) return;
@@ -674,16 +688,78 @@
             }
         }
 
+        // --- SISTEMA DESHACER (UNDO) ---
+        function showUndoToast(message) {
+            DOM.toastMessage.textContent = message;
+            DOM.toastContainer.classList.add('show');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                DOM.toastContainer.classList.remove('show');
+                deletedItemsBackup = []; // Pasado el tiempo, borramos memoria
+            }, 5000);
+        }
+
+        async function undoDelete() {
+            if (deletedItemsBackup.length === 0) return;
+
+            DOM.toastContainer.classList.remove('show');
+            if (toastTimeout) clearTimeout(toastTimeout);
+
+            try {
+                // Volvemos a inyectar en Firebase todos los items borrados
+                for (const item of deletedItemsBackup) {
+                    const itemDoc = doc(db, "items_v3", item.id);
+                    // Separamos el ID para no guardarlo como un campo más dentro del documento
+                    const { id, ...dataToRestore } = item;
+                    await setDoc(itemDoc, dataToRestore);
+                }
+            } catch (error) {
+                console.error("Error al deshacer:", error);
+            }
+
+            deletedItemsBackup = []; // Limpiamos la memoria
+        }
+
+        // Asignamos el evento al botón Deshacer
+        DOM.btnUndo.addEventListener('click', undoDelete);
+
+        async function deleteItem(id) {
+            const itemToBackup = AppState.items.find(i => i.id === id);
+            if (!itemToBackup) return;
+
+            // 1. Guardar copia del item
+            deletedItemsBackup = [{ ...itemToBackup }];
+
+            // 2. Borrar de la nube
+            const itemDoc = doc(db, "items_v3", id);
+            await deleteDoc(itemDoc);
+
+            // 3. Mostrar opción de Deshacer
+            showUndoToast("Producto eliminado");
+        }
+
         async function clearCompleted() {
             if (AppState.items.length === 0) return;
+            
             if (confirm('¿Eliminar todos los productos de esta lista?')) {
+                // 1. Guardar copia de toda la lista
+                deletedItemsBackup = AppState.items.map(item => ({ ...item }));
+
+                // 2. Borrar todos de la nube
                 AppState.items.forEach(async (item) => {
                     const itemDoc = doc(db, "items_v3", item.id);
                     await deleteDoc(itemDoc);
                 });
+
+                // 3. Mostrar opción de Deshacer
+                showUndoToast(`Se han borrado ${deletedItemsBackup.length} productos`);
             }
         }
 
+        // ==========================================
+        // FUNCIONES DE UI
+        // ==========================================
         function updateUI() {
             renderList();
             updateStats();
